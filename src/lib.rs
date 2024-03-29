@@ -43,7 +43,7 @@ pub mod pallet {
     use crate::liquidity_pool::LiquidityPool;
     use frame_support::pallet_prelude::*;
     use frame_support::traits::fungibles::Mutate;
-    use frame_support::traits::tokens::Preservation;
+    use frame_support::traits::tokens::{Fortitude, Precision, Preservation};
     use frame_system::pallet_prelude::*;
 
     // The `Pallet` struct serves as a placeholder to implement traits, methods and dispatchables
@@ -104,6 +104,32 @@ pub mod pallet {
             (AssetIdOf<T>, AssetIdOf<T>),
             AssetBalanceOf<T>,
         ),
+
+        /// Liquidity burned.
+        /// Parameters:
+        /// - `T::AccountId`: The account ID of the liquidity provider who burned the liquidity.
+        /// - `(T::AssetId, T::AssetId)`: The trading pair of the liquidity pool.
+        /// - `T::Balance`: The amount of liquidity tokens burned.
+        LiquidityBurned(
+            AccountIdOf<T>,
+            (AssetIdOf<T>, AssetIdOf<T>),
+            AssetBalanceOf<T>,
+        ),
+
+        /// Assets swapped.
+        /// Parameters:
+        /// - `T::AccountId`: The account ID of the user who performed the swap.
+        /// - `T::AssetId`: The ID of the asset that was swapped (sold).
+        /// - `T::Balance`: The amount of the asset that was swapped (sold).
+        /// - `T::AssetId`: The ID of the asset that was received (bought).
+        /// - `T::Balance`: The amount of the asset that was received (bought).
+        Swapped(
+            AccountIdOf<T>,
+            AssetIdOf<T>,
+            AssetBalanceOf<T>,
+            AssetIdOf<T>,
+            AssetBalanceOf<T>,
+        ),
     }
 
     /// Errors that can be returned by this pallet.
@@ -144,6 +170,12 @@ pub mod pallet {
 
         /// Minted is not greater than or equal to the minimum liquidity specified
         InsufficientLiquidityMinted,
+
+        /// The liquidity pool does not have enough reserves
+        InsufficientAmountsOut,
+
+        /// There is no liquidity to burn
+        ZeroLiquidityBurned,
     }
 
     /// The pallet's dispatchable functions ([`Call`]s).
@@ -237,6 +269,94 @@ pub mod pallet {
 
             Ok(())
         }
+
+        // Dispatchable call to burn liquidity tokens
+        #[pallet::call_index(2)]
+        #[pallet::weight(Weight::default())]
+        pub fn burn_liquidity(
+            origin: OriginFor<T>,
+            asset_a: AssetIdOf<T>,
+            asset_b: AssetIdOf<T>,
+            liquidity_burned: AssetBalanceOf<T>,
+            min_amount_a: AssetBalanceOf<T>,
+            min_amount_b: AssetBalanceOf<T>,
+        ) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+
+            let trading_pair = (asset_a, asset_b);
+
+            let mut liquidity_pool =
+                LiquidityPools::<T>::get(trading_pair).ok_or(Error::<T>::LiquidityPoolNotFound)?;
+
+            // Calculate the amounts of tokens to withdraw based on the liquidity burned and
+            // the current reserves
+            let amounts_out = Self::calculate_amounts_out(
+                liquidity_burned,
+                (liquidity_pool.reserves.0, liquidity_pool.reserves.1),
+                liquidity_pool.total_liquidity,
+            )?;
+            ensure!(
+                amounts_out.0 >= min_amount_a && amounts_out.1 >= min_amount_b,
+                Error::<T>::InsufficientAmountsOut
+            );
+
+            // Burn the liquidity tokens from the sender
+            Self::burn_liquidity_tokens(&sender, liquidity_pool.liquidity_token, liquidity_burned)?;
+
+            // Update the liquidity pool reserves and total liquidity
+            liquidity_pool.burn(liquidity_burned, amounts_out)?;
+            LiquidityPools::<T>::insert(trading_pair, liquidity_pool);
+
+            Self::deposit_event(Event::LiquidityBurned(
+                sender,
+                trading_pair,
+                liquidity_burned,
+            ));
+
+            Ok(())
+        }
+
+        #[pallet::call_index(3)]
+        #[pallet::weight(Weight::default())]
+        pub fn swap(
+            origin: OriginFor<T>,
+            asset_in: AssetIdOf<T>,
+            asset_out: AssetIdOf<T>,
+            amount_in: AssetBalanceOf<T>,
+            min_amount_out: AssetBalanceOf<T>,
+        ) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+
+
+            let (liquidity_pool, trading_pair) = {
+                let mut trading_pair = (asset_in, asset_out);
+
+                if LiquidityPools::<T>::contains_key(trading_pair) {
+                    (LiquidityPools::<T>::get(&trading_pair), trading_pair)
+                } else {
+                    trading_pair = (asset_out, asset_in);
+                    (LiquidityPools::<T>::get(&trading_pair), trading_pair)
+                }
+            };
+
+            
+
+            let mut liquidity_pool =
+                liquidity_pool.ok_or(Error::<T>::LiquidityPoolNotFound)?;
+
+            let amount_out = liquidity_pool.swap(asset_in, amount_in, asset_out, min_amount_out)?;
+
+            Self::transfer_asset_from_user(&sender, asset_in, amount_in)?;
+            Self::transfer_asset_to_user(&sender, asset_out, amount_out)?;
+
+            LiquidityPools::<T>::insert(&trading_pair, liquidity_pool);
+
+            Self::deposit_event(Event::Swapped(
+                sender, asset_in, amount_in, asset_out, amount_out,
+            ));
+
+            Ok(())
+        }
     }
 
     /// The pallet's internal functions.
@@ -289,18 +409,20 @@ pub mod pallet {
             Ok(sqrt_product)
         }
 
+        fn pallet_account_id() -> T::AccountId {
+            T::PalletId::get().into_account_truncating()
+        }
+
         fn transfer_asset_to_pool(
             sender: &AccountIdOf<T>,
             asset_id: AssetIdOf<T>,
             amount: AssetBalanceOf<T>,
         ) -> DispatchResult {
-            let pool_account_id = T::PalletId::get().into_account_truncating();
-
             // Transfer the asset from the sender to the pool account
             T::Fungibles::transfer(
                 asset_id,
                 sender,
-                &pool_account_id,
+                &Self::pallet_account_id(),
                 amount,
                 Preservation::Expendable,
             )?;
@@ -315,6 +437,84 @@ pub mod pallet {
         ) -> DispatchResult {
             // Mint the liquidity tokens to the recipient
             T::Fungibles::mint_into(liquidity_token_id, recipient, amount)?;
+            Ok(())
+        }
+
+        fn burn_liquidity_tokens(
+            sender: &AccountIdOf<T>,
+            liquidity_token_id: AssetIdOf<T>,
+            amount: AssetBalanceOf<T>,
+        ) -> DispatchResult {
+            // Burn the liquidity tokens from the sender's account
+            T::Fungibles::burn_from(
+                liquidity_token_id,
+                sender,
+                amount,
+                Precision::Exact,
+                Fortitude::Polite,
+            )?;
+            Ok(())
+        }
+
+        fn calculate_amounts_out(
+            liquidity_burned: AssetBalanceOf<T>,
+            reserves: (AssetBalanceOf<T>, AssetBalanceOf<T>),
+            total_liquidity: AssetBalanceOf<T>,
+        ) -> Result<(AssetBalanceOf<T>, AssetBalanceOf<T>), DispatchError> {
+            ensure!(!liquidity_burned.is_zero(), Error::<T>::ZeroLiquidityBurned);
+            ensure!(
+                !total_liquidity.is_zero(),
+                Error::<T>::InsufficientLiquidity
+            );
+
+            let (reserve_a, reserve_b) = reserves;
+            ensure!(
+                !reserve_a.is_zero() && !reserve_b.is_zero(),
+                Error::<T>::InsufficientLiquidity
+            );
+
+            let amount_a = liquidity_burned
+                .checked_mul(&reserve_a)
+                .ok_or(Error::<T>::ArithmeticOverflow)?
+                .checked_div(&total_liquidity)
+                .ok_or(Error::<T>::DivisionByZero)?;
+
+            let amount_b = liquidity_burned
+                .checked_mul(&reserve_b)
+                .ok_or(Error::<T>::ArithmeticOverflow)?
+                .checked_div(&total_liquidity)
+                .ok_or(Error::<T>::DivisionByZero)?;
+
+            Ok((amount_a, amount_b))
+        }
+
+        fn transfer_asset_from_user(
+            user: &AccountIdOf<T>,
+            asset_id: AssetIdOf<T>,
+            amount: AssetBalanceOf<T>,
+        ) -> DispatchResult {
+            T::Fungibles::transfer(
+                asset_id,
+                user,
+                &Self::pallet_account_id(),
+                amount,
+                Preservation::Expendable,
+            )?;
+            Ok(())
+        }
+
+        fn transfer_asset_to_user(
+            user: &AccountIdOf<T>,
+            asset_id: AssetIdOf<T>,
+            amount: AssetBalanceOf<T>,
+        ) -> DispatchResult {
+            T::Fungibles::transfer(
+                asset_id,
+                &Self::pallet_account_id(),
+                user,
+                amount,
+                Preservation::Expendable,
+            )?;
             Ok(())
         }
     }
