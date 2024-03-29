@@ -8,7 +8,7 @@ use frame_support::traits::fungibles;
 use frame_support::PalletId;
 use pallet::*;
 use sp_runtime::traits::{
-    AccountIdConversion, CheckedDiv, CheckedMul, IntegerSquareRoot, Saturating, Zero,
+    AccountIdConversion, CheckedDiv, CheckedMul, IntegerSquareRoot, Zero,
 };
 
 // FRAME pallets require their own "mock runtimes" to be able to run unit tests. This module
@@ -41,7 +41,6 @@ pub mod pallet {
     // Import various useful types required by all FRAME pallets.
     use super::*;
     use crate::liquidity_pool::LiquidityPool;
-    use frame_support::pallet_prelude::*;
     use frame_support::traits::fungibles::Mutate;
     use frame_support::traits::tokens::{Fortitude, Precision, Preservation};
     use frame_system::pallet_prelude::*;
