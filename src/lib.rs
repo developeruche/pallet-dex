@@ -7,9 +7,7 @@ use frame_support::traits::fungible;
 use frame_support::traits::fungibles;
 use frame_support::PalletId;
 use pallet::*;
-use sp_runtime::traits::{
-    AccountIdConversion, CheckedDiv, CheckedMul, IntegerSquareRoot, Zero,
-};
+use sp_runtime::traits::{AccountIdConversion, CheckedDiv, CheckedMul, IntegerSquareRoot, Zero};
 
 // FRAME pallets require their own "mock runtimes" to be able to run unit tests. This module
 // contains a mock runtime specific for testing this pallet's functionality.
@@ -326,9 +324,8 @@ pub mod pallet {
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
-
             let (liquidity_pool, trading_pair) = {
-                let mut trading_pair = (asset_in, asset_out);
+                let mut trading_pair: (AssetIdOf<T>, AssetIdOf<T>) = (asset_in, asset_out);
 
                 if LiquidityPools::<T>::contains_key(trading_pair) {
                     (LiquidityPools::<T>::get(&trading_pair), trading_pair)
@@ -338,12 +335,9 @@ pub mod pallet {
                 }
             };
 
-            
+            let mut liquidity_pool = liquidity_pool.ok_or(Error::<T>::LiquidityPoolNotFound)?;
 
-            let mut liquidity_pool =
-                liquidity_pool.ok_or(Error::<T>::LiquidityPoolNotFound)?;
-
-            let amount_out = liquidity_pool.swap(asset_in, amount_in, asset_out, min_amount_out)?;
+            let amount_out = liquidity_pool.swap(asset_in, asset_out, amount_in, min_amount_out)?;
 
             Self::transfer_asset_from_user(&sender, asset_in, amount_in)?;
             Self::transfer_asset_to_user(&sender, asset_out, amount_out)?;

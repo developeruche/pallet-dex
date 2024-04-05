@@ -1,15 +1,17 @@
 use super::*;
-use sp_runtime::traits::{
-    CheckedAdd, CheckedSub
-};
+use sp_runtime::traits::{CheckedAdd, CheckedSub};
 use sp_runtime::Permill;
 
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct LiquidityPool<T: Config> {
+    /// this is the asset pair
     pub assets: (AssetIdOf<T>, AssetIdOf<T>),
+    /// this is the reserve balance of the pool
     pub reserves: (AssetBalanceOf<T>, AssetBalanceOf<T>),
+    /// this is the total liquidity minted
     pub total_liquidity: AssetBalanceOf<T>,
+    /// this is the asset id of the liqidity token
     pub liquidity_token: AssetIdOf<T>,
 }
 
@@ -64,8 +66,8 @@ impl<T: Config> LiquidityPool<T> {
     pub fn swap(
         &mut self,
         asset_in: AssetIdOf<T>,
-        amount_in: AssetBalanceOf<T>,
         asset_out: AssetIdOf<T>,
+        amount_in: AssetBalanceOf<T>,
         min_amount_out: AssetBalanceOf<T>,
     ) -> Result<AssetBalanceOf<T>, DispatchError> {
         ensure!(
