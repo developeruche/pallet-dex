@@ -14,8 +14,10 @@ use sp_runtime::traits::{AccountIdConversion, CheckedDiv, CheckedMul, IntegerSqu
 #[cfg(test)]
 mod mock;
 
-// This module contains the unit tests for this pallet.
+// This module contains the liqiudity pool logic
 mod liquidity_pool;
+
+
 #[cfg(test)]
 mod tests;
 
@@ -32,6 +34,8 @@ pub type BalanceOf<T> = <<T as Config>::NativeBalance as fungible::Inspect<
 pub type AssetBalanceOf<T> = <<T as Config>::Fungibles as fungibles::Inspect<
     <T as frame_system::Config>::AccountId,
 >>::Balance;
+
+
 
 // All pallet logic is defined in its own module and must be annotated by the `pallet` attribute.
 #[frame_support::pallet]
@@ -190,7 +194,7 @@ pub mod pallet {
             // ensure that the origin has been signed
             let sender = ensure_signed(origin)?;
 
-            let trading_pair = (asset_a, asset_b);
+            let trading_pair = return_vaild_pair_format::<T>(asset_a, asset_b);
             ensure!(
                 !LiquidityPools::<T>::contains_key(trading_pair),
                 Error::<T>::LiquidityPoolAlreadyExists
@@ -206,6 +210,10 @@ pub mod pallet {
 
             // Insert the new liquidity pool into the storage
             LiquidityPools::<T>::insert(trading_pair, liquidity_pool);
+
+            // Insert the liquidity token into the storage
+            LiquidityTokens::<T>::insert(liquidity_token, trading_pair);
+
 
             // Log an event indicating that the pool was created
             Self::deposit_event(Event::LiquidityPoolCreated(sender, trading_pair));
@@ -280,7 +288,7 @@ pub mod pallet {
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
-            let trading_pair = (asset_a, asset_b);
+            let trading_pair = return_vaild_pair_format::<T>(asset_a, asset_b);
 
             let mut liquidity_pool =
                 LiquidityPools::<T>::get(trading_pair).ok_or(Error::<T>::LiquidityPoolNotFound)?;
@@ -510,5 +518,15 @@ pub mod pallet {
             )?;
             Ok(())
         }
+    }
+}
+
+
+
+fn return_vaild_pair_format<T: pallet::Config>(asset_a: AssetIdOf<T>, asset_b: AssetIdOf<T>) -> (AssetIdOf<T>, AssetIdOf<T>) {
+    if asset_a < asset_b {
+        (asset_a, asset_b)
+    } else {
+        (asset_b, asset_a)
     }
 }
