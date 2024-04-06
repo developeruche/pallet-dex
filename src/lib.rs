@@ -136,6 +136,9 @@ pub mod pallet {
     /// Errors that can be returned by this pallet.
     #[pallet::error]
     pub enum Error<T> {
+        /// cannot have the same asset in a trading pair
+        CannotHaveSameAssetInPair,
+
         /// Insufficient liquidity available in the pool.
         InsufficientLiquidity,
 
@@ -194,7 +197,7 @@ pub mod pallet {
             // ensure that the origin has been signed
             let sender = ensure_signed(origin)?;
 
-            let trading_pair = return_vaild_pair_format::<T>(asset_a, asset_b);
+            let trading_pair = return_vaild_pair_format::<T>(asset_a, asset_b)?;
             ensure!(
                 !LiquidityPools::<T>::contains_key(trading_pair),
                 Error::<T>::LiquidityPoolAlreadyExists
@@ -288,7 +291,7 @@ pub mod pallet {
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
-            let trading_pair = return_vaild_pair_format::<T>(asset_a, asset_b);
+            let trading_pair = return_vaild_pair_format::<T>(asset_a, asset_b)?;
 
             let mut liquidity_pool =
                 LiquidityPools::<T>::get(trading_pair).ok_or(Error::<T>::LiquidityPoolNotFound)?;
@@ -523,10 +526,14 @@ pub mod pallet {
 
 
 
-fn return_vaild_pair_format<T: pallet::Config>(asset_a: AssetIdOf<T>, asset_b: AssetIdOf<T>) -> (AssetIdOf<T>, AssetIdOf<T>) {
+fn return_vaild_pair_format<T: pallet::Config>(asset_a: AssetIdOf<T>, asset_b: AssetIdOf<T>) -> Result<(AssetIdOf<T>, AssetIdOf<T>), DispatchError> {
+    if asset_a == asset_b {
+        return Err(Error::<T>::LiquidityPoolAlreadyExists.into());
+    }
+
     if asset_a < asset_b {
-        (asset_a, asset_b)
+        Ok((asset_a, asset_b))
     } else {
-        (asset_b, asset_a)
+        Ok((asset_b, asset_a))
     }
 }
