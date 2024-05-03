@@ -315,6 +315,10 @@ pub mod pallet {
             liquidity_pool.burn(liquidity_burned, amounts_out)?;
             LiquidityPools::<T>::insert(trading_pair, liquidity_pool);
 
+            // Transfer the assets to the sender
+            Self::transfer_asset_to_user(&sender, trading_pair.0, amounts_out.0)?;
+            Self::transfer_asset_to_user(&sender, trading_pair.1, amounts_out.1)?;
+
             Self::deposit_event(Event::LiquidityBurned(
                 sender,
                 trading_pair,

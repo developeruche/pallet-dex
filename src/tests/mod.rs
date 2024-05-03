@@ -4,3 +4,5 @@ mod create_liquidity_pool;
 mod mint_liquidity;
 #[cfg(test)]
 mod burn_liquidity;
+#[cfg(test)]
+mod swap;

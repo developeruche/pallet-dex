@@ -4,7 +4,7 @@ use frame_system::RawOrigin;
 
 
 #[test]
-fn test_should_mint_liquidity() {
+fn test_swap() {
     new_test_ext().execute_with(|| {
         System::set_block_number(1);
 
@@ -58,7 +58,7 @@ fn test_should_mint_liquidity() {
         assert_eq!(balance_lp, 100);
         assert_eq!(total_liquidity, 100);
 
-        Pallet::<Test>::burn_liquidity(origin.into(), asset_a, asset_b, 50, 0, 0).unwrap();
+        Pallet::<Test>::swap(origin.into(), asset_a, asset_b, 10, 0).unwrap();
 
         let balance_a = Assets::balance(asset_a, account);
         let balance_b = Assets::balance(asset_b, account);
@@ -67,9 +67,10 @@ fn test_should_mint_liquidity() {
         pool = LiquidityPools::<Test>::get(pool_pair).unwrap();
         let total_liquidity = pool.total_liquidity;
 
-        assert_eq!(balance_a, 950);
-        assert_eq!(balance_b, 950);
-        assert_eq!(balance_lp, 50);
-        assert_eq!(total_liquidity, 50);
+
+        println!("balance_a: {}", balance_a);
+        println!("balance_b: {}", balance_b);
+        println!("balance_lp: {}", balance_lp);
+        println!("total_liquidity: {}", total_liquidity);
     });
 }
