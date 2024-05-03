@@ -6,7 +6,7 @@ authors = ["Developer Uche <https://github.com/developeruche>"]
 homepage = "https://github.com/developeruche/pallet-dex"
 edition = "2021"
 license = "MIT"
-publish = false
+publish = true
 repository = "https://github.com/developeruche/pallet-dex"
 
 [package.metadata.docs.rs]
