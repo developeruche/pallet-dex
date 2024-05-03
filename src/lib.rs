@@ -236,7 +236,7 @@ pub mod pallet {
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
-            let trading_pair = (asset_a, asset_b);
+            let trading_pair = return_vaild_pair_format::<T>(asset_a, asset_b)?;
 
             // Get the liquidity pool from storage
             let mut liquidity_pool =
@@ -336,14 +336,8 @@ pub mod pallet {
             let sender = ensure_signed(origin)?;
 
             let (liquidity_pool, trading_pair) = {
-                let mut trading_pair: (AssetIdOf<T>, AssetIdOf<T>) = (asset_in, asset_out);
-
-                if LiquidityPools::<T>::contains_key(trading_pair) {
-                    (LiquidityPools::<T>::get(&trading_pair), trading_pair)
-                } else {
-                    trading_pair = (asset_out, asset_in);
-                    (LiquidityPools::<T>::get(&trading_pair), trading_pair)
-                }
+                let trading_pair = return_vaild_pair_format::<T>(asset_in, asset_out)?;
+                (LiquidityPools::<T>::get(&trading_pair), trading_pair)
             };
 
             let mut liquidity_pool = liquidity_pool.ok_or(Error::<T>::LiquidityPoolNotFound)?;
@@ -402,6 +396,7 @@ pub mod pallet {
             }
         }
 
+        /// This is used ti estimate the amount of liquidity to be minted to a provider is the pool is a new pool
         fn geometric_mean(
             amount_a: AssetBalanceOf<T>,
             amount_b: AssetBalanceOf<T>,

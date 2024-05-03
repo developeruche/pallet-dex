@@ -1,8 +1,6 @@
 use crate::{mock::*, AccountIdOf, Error, Event, LiquidityPools, Pallet, LiquidityTokens};
-use frame_support::{assert_noop, assert_ok, storage::child::get};
+use frame_support::assert_noop;
 use frame_system::RawOrigin;
-use sp_core::H256;
-
 
 
 #[test]
@@ -83,5 +81,41 @@ fn ensure_event_was_emitted_on_pool_creation() {
 
         let event = Event::LiquidityPoolCreated(account, pool_pair);
         assert!(System::events().iter().any(|a| a.event == RuntimeEvent::Dex(event.clone())));
+    });
+}
+
+#[test]
+fn should_not_be_able_to_create_a_pair_twice_1() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(1);
+
+        let account: AccountIdOf<Test> = 4;
+        let asset_a = 10;
+        let asset_b = 20;
+        let liquidity_token = 30;
+        let origin = RawOrigin::Signed(account);
+        let _ = Pallet::<Test>::create_liquidity_pool(origin.clone().into(), asset_a, asset_b, liquidity_token);
+        let result = Pallet::<Test>::create_liquidity_pool(origin.clone().into(), asset_a, asset_b, liquidity_token);
+
+
+        assert_noop!(result, Error::<Test>::LiquidityPoolAlreadyExists);
+    });
+}
+
+#[test]
+fn should_not_be_able_to_create_a_pair_twice_2() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(1);
+
+        let account: AccountIdOf<Test> = 4;
+        let asset_a = 10;
+        let asset_b = 20;
+        let liquidity_token = 30;
+        let origin = RawOrigin::Signed(account);
+        let _ = Pallet::<Test>::create_liquidity_pool(origin.clone().into(), asset_a, asset_b, liquidity_token);
+        let result = Pallet::<Test>::create_liquidity_pool(origin.clone().into(), asset_b, asset_a, liquidity_token);
+
+
+        assert_noop!(result, Error::<Test>::LiquidityPoolAlreadyExists);
     });
 }
