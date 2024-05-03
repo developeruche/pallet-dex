@@ -1686,8 +1686,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-template"
-version = "4.0.0-dev"
+name = "pallet-dex-v2"
+version = "0.0.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
