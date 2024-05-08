@@ -1,9 +1,9 @@
 # DEX Pallet
---------------
-
+-------------------
 Custom DEX pallet using the Polkadot SDK based of UniswapV2 implementation.
 
-
+### Disclaimer
+This code has not been audited. Use at your own risk.
 
 ### Usage
 
@@ -74,5 +74,9 @@ impl pallet_dex::Config for Runtime {
 
 ### License
 
+Do wathever you want with this code. No warranty, no liability, no nothing.
+
 
 ### Contributing
+
+Make a PR and I'll review it. If it's good, I'll merge it. If it's not, I'll tell you why and we can work on it together. :)
