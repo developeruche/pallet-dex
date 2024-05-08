@@ -1,6 +1,6 @@
 [package]
 name = "pallet-dex-v2"
-version = "0.0.3"
+version = "0.0.4"
 description = "Custom DEX pallet using the Polkadot SDK based of UniswapV2 implementation."
 authors = ["Developer Uche <https://github.com/developeruche>"]
 homepage = "https://github.com/developeruche/pallet-dex"
